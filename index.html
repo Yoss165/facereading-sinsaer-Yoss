@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>โปรแกรมวิเคราะห์โหงวเฮ้ง โดย ซินแสยศ</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Face-api.js library for face detection -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Chart.js for radar chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -18,8 +22,8 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .loader {
-            border: 8px solid #f3f3f3; /* Light grey */
-            border-top: 8px solid #ca8a04; /* Gold */
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #ca8a04;
             border-radius: 50%;
             width: 80px;
             height: 80px;
@@ -41,6 +45,16 @@
             align-items: center;
             z-index: 1000;
         }
+        #canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+        }
+        #result-canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+        }
     </style>
 </head>
 <body class="bg-black text-gray-200">
@@ -49,16 +63,12 @@
         <div class="min-h-screen bg-black bg-opacity-80">
             <div class="container mx-auto px-4 py-8">
 
-                <!-- Header Section -->
                 <header class="text-center mb-12">
-                     <!-- Sinsae Yot's image has been removed as requested -->
                     <h1 class="text-3xl md:text-4xl font-bold text-yellow-400 mb-2">โปรแกรมวิเคราะห์โหงวเฮ้ง</h1>
                     <p class="text-md md:text-lg text-gray-300">โดย ซินแสยศ | FB: energy balance ปรึกษาฮวงจุ้ยอาจารย์ยศ</p>
                 </header>
 
-                <!-- Main Content -->
                 <main class="max-w-4xl mx-auto">
-                    <!-- Upload Section -->
                     <div id="upload-section" class="glass-card rounded-2xl p-6 md:p-8 shadow-2xl border border-yellow-800">
                         <h2 class="text-2xl font-semibold text-yellow-500 mb-4 text-center">อัปโหลดรูปภาพเพื่อวิเคราะห์</h2>
                         <p class="text-center text-gray-400 mb-6">
@@ -68,38 +78,41 @@
                         <div class="flex flex-col items-center">
                             <input type="file" id="image-upload" accept="image/*" class="hidden">
                             <label for="image-upload" class="cursor-pointer bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-8 rounded-lg transition-transform transform hover:scale-105 shadow-lg mb-4">
-                                เลือกรูปภาพ
+                                1. เลือกรูปภาพ
                             </label>
                             
-                            <!-- Image Preview Container -->
                             <div id="upload-preview-container" class="hidden mt-4 mb-4 text-center w-full max-w-xs">
                                 <img id="upload-preview-image" src="" alt="ตัวอย่างรูปภาพที่อัปโหลด" class="rounded-lg shadow-lg w-full mb-2 border-2 border-yellow-500">
                                 <p class="text-green-400 font-semibold">✓ อัปโหลดสำเร็จแล้ว</p>
                             </div>
 
-                            <button id="analyze-button" class="bg-gray-600 text-white font-bold py-3 px-8 rounded-lg cursor-not-allowed" disabled>
-                                เริ่มวิเคราะห์
+                            <button id="analyze-button" class="mt-6 bg-gray-600 text-white font-bold py-3 px-8 rounded-lg cursor-not-allowed" disabled>
+                                2. เริ่มวิเคราะห์
                             </button>
                             <p id="file-info" class="text-gray-500 mt-3 text-sm"></p>
                         </div>
                     </div>
 
-                    <!-- Loading Section -->
                     <div id="loading-section" class="hidden text-center py-12">
                         <div class="loader mx-auto"></div>
-                        <p class="mt-6 text-xl text-yellow-400">กำลังวิเคราะห์ใบหน้า... กรุณารอสักครู่</p>
+                        <p id="loading-text" class="mt-6 text-xl text-yellow-400">กำลังเตรียมโปรแกรม...</p>
                     </div>
 
-                    <!-- Result Section -->
                     <div id="result-section" class="hidden mt-8">
                         <div class="glass-card rounded-2xl p-6 md:p-8 shadow-2xl border border-yellow-800">
                             <h2 class="text-3xl font-bold text-yellow-500 mb-6 text-center border-b-2 border-yellow-700 pb-4">ผลการวิเคราะห์โหงวเฮ้ง</h2>
                             <div class="flex flex-col md:flex-row gap-8 items-start">
-                                <div class="w-full md:w-1/3 flex-shrink-0">
-                                    <img id="uploaded-image-preview" src="" alt="รูปภาพที่อัปโหลด" class="rounded-lg shadow-lg w-full">
+                                <div id="canvas-container" class="w-full md:w-1/3 flex-shrink-0">
+                                    <canvas id="result-canvas"></canvas>
                                 </div>
                                 <div id="analysis-text" class="w-full md:w-2/3 text-lg leading-relaxed space-y-4 whitespace-pre-wrap">
-                                    <!-- Analysis result will be injected here -->
+                                </div>
+                            </div>
+                             <!-- Score Chart Section -->
+                            <div class="mt-8 pt-6 border-t-2 border-yellow-800">
+                                <h3 class="text-2xl font-semibold text-yellow-500 mb-4 text-center">กราฟสรุปศักยภาพ 5 ด้าน</h3>
+                                <div class="w-full max-w-md mx-auto">
+                                    <canvas id="score-chart"></canvas>
                                 </div>
                             </div>
                             <div class="text-center mt-8">
@@ -114,7 +127,6 @@
         </div>
     </div>
 
-    <!-- Modal for errors -->
     <div id="error-modal" class="modal-backdrop hidden">
         <div class="glass-card rounded-2xl p-8 shadow-2xl border border-red-500 max-w-sm w-full text-center">
             <h3 class="text-2xl font-bold text-red-400 mb-4">เกิดข้อผิดพลาด</h3>
@@ -129,20 +141,39 @@
         // --- DOM Element References ---
         const uploadSection = document.getElementById('upload-section');
         const loadingSection = document.getElementById('loading-section');
+        const loadingText = document.getElementById('loading-text');
         const resultSection = document.getElementById('result-section');
         const imageUploadInput = document.getElementById('image-upload');
         const analyzeButton = document.getElementById('analyze-button');
         const resetButton = document.getElementById('reset-button');
         const fileInfo = document.getElementById('file-info');
-        const imagePreview = document.getElementById('uploaded-image-preview');
+        const resultCanvas = document.getElementById('result-canvas');
         const analysisText = document.getElementById('analysis-text');
         const errorModal = document.getElementById('error-modal');
         const errorMessage = document.getElementById('error-message');
         const closeModalButton = document.getElementById('close-modal-button');
         const uploadPreviewContainer = document.getElementById('upload-preview-container');
         const uploadPreviewImage = document.getElementById('upload-preview-image');
+        const scoreChartCanvas = document.getElementById('score-chart');
 
         let base64ImageData = null;
+        let modelsLoaded = false;
+        let scoreChartInstance = null;
+
+        // --- Load Face Detection Models ---
+        async function loadModels() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+                modelsLoaded = true;
+                console.log("Face detection models loaded.");
+            } catch (error) {
+                console.error("Error loading models: ", error);
+                showErrorModal("ไม่สามารถโหลดโมเดลตรวจจับใบหน้าได้ กรุณารีเฟรชหน้าเว็บ");
+            }
+        }
+        loadModels();
 
         // --- Event Listeners ---
         imageUploadInput.addEventListener('change', (event) => {
@@ -162,11 +193,8 @@
                 reader.onloadend = () => {
                     const dataUrl = reader.result;
                     base64ImageData = dataUrl.split(',')[1];
-                    
-                    // Show preview
                     uploadPreviewImage.src = dataUrl;
                     uploadPreviewContainer.classList.remove('hidden');
-
                     fileInfo.textContent = `ไฟล์: ${file.name}`;
                     activateAnalyzeButton();
                 };
@@ -175,16 +203,39 @@
         });
 
         analyzeButton.addEventListener('click', async () => {
-            if (!base64ImageData) {
-                showErrorModal('กรุณาเลือกรูปภาพก่อน');
-                return;
-            }
+            if (!base64ImageData) { showErrorModal('กรุณาเลือกรูปภาพก่อน'); return; }
+            if (!modelsLoaded) { showErrorModal('โมเดลตรวจจับใบหน้ายังไม่พร้อมใช้งาน กรุณารอสักครู่แล้วลองใหม่'); return; }
+
             uploadSection.classList.add('hidden');
             loadingSection.classList.remove('hidden');
             resultSection.classList.add('hidden');
+
             try {
-                const analysisResult = await getFacialAnalysis(base64ImageData);
-                displayResults(analysisResult);
+                loadingText.textContent = 'กำลังพิจารณาโครงสร้างใบหน้า...';
+                const detections = await faceapi.detectAllFaces(uploadPreviewImage, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+                if (detections.length === 0) {
+                    showErrorModal('ไม่สามารถตรวจจับใบหน้าในรูปภาพได้ กรุณาลองรูปอื่นที่เห็นใบหน้าชัดเจน');
+                    resetToUpload();
+                    return;
+                }
+                
+                drawDetectionsOnCanvas(detections, resultCanvas);
+
+                loadingText.textContent = 'กำลังประมวลผลคำทำนาย...';
+                const analysisResultText = await getFacialAnalysis(base64ImageData);
+                
+                const delimiter = "SCORE_JSON:";
+                const delimiterIndex = analysisResultText.lastIndexOf(delimiter);
+
+                if (delimiterIndex === -1) {
+                    throw new Error("ไม่พบข้อมูลคะแนนในผลลัพธ์");
+                }
+
+                const textPart = analysisResultText.substring(0, delimiterIndex).trim();
+                const jsonPart = JSON.parse(analysisResultText.substring(delimiterIndex + delimiter.length));
+
+                displayResults(textPart, jsonPart);
+
             } catch (error) {
                 console.error('Error during analysis:', error);
                 showErrorModal('เกิดข้อผิดพลาดในการวิเคราะห์ กรุณาลองใหม่อีกครั้ง');
@@ -192,69 +243,161 @@
             }
         });
 
-        resetButton.addEventListener('click', () => {
-            resetToUpload();
-        });
-
-        closeModalButton.addEventListener('click', () => {
-            errorModal.classList.add('hidden');
-        });
+        resetButton.addEventListener('click', () => resetToUpload());
+        closeModalButton.addEventListener('click', () => errorModal.classList.add('hidden'));
 
         // --- Core Functions ---
+
         async function getFacialAnalysis(base64Image) {
             const prompt = `
-            ในฐานะซินแสผู้เชี่ยวชาญด้านโหงวเฮ้ง จะทำการวิเคราะห์ใบหน้าจากรูปภาพนี้ตามหลักการ 10 อวัยวะหลักอย่างละเอียดเพื่อให้ท่านได้เข้าใจถึงลักษณะและคำทำนายที่ซ่อนอยู่ในใบหน้านี้ครับ
+            คุณคือ "ระบบวิเคราะห์โหงวเฮ้ง AI-SINSAYOT" ที่ถูกสร้างมาเพื่อวิเคราะห์ตามหลักโหงวเฮ้งอย่างตรงไปตรงมาที่สุด
             
-            โปรดดำเนินการวิเคราะห์ตามหลักการต่อไปนี้:
-            1.  **หน้าผาก:** สติปัญญา, วัยเด็ก, การอุปถัมภ์
-            2.  **คิ้ว:** ความคิด, อารมณ์, พี่น้อง
-            3.  **ตา:** ทัศนคติ, วิสัยทัศน์, จิตใจ
-            4.  **โหนกแก้ม:** อำนาจ, บารมี, มนุษยสัมพันธ์
-            5.  **จมูก:** ตัวตน, ทรัพย์สิน, โชคลาภ
-            6.  **ร่องหยิ่งตง (ร่องใต้จมูก):** บุตร, ผลงาน, ทายาท
-            7.  **เส้นฮวบเหล็ง (ร่องแก้ม):** ความสำเร็จ, ความหนักแน่น
-            8.  **ปาก:** การสื่อสาร, การกิน, วาทศิลป์
-            9.  **คาง-กราม:** ชีวิตบั้นปลาย, บริวาร, ความอดทน
-            10. **หู:** ชีวิตวัยเด็ก, การรับฟัง, สุขภาพไต
+            **ภารกิจ:**
+            1. วิเคราะห์ใบหน้าในรูปภาพอย่างละเอียดและตรงไปตรงมา โดยชี้ให้เห็นทั้ง "จุดแข็ง" และ "จุดอ่อน (ข้อเสีย)" อย่างชัดเจน ไม่ต้องใช้คำพูดอ้อมค้อม
+            2. หลังจากวิเคราะห์ครบ 10 ส่วนแล้ว ให้ประเมินคะแนน 1-10 ใน 5 ด้านสำคัญของชีวิต (การงาน, การเงิน, ความรัก, บริวาร, สุขภาพ) ตามความเป็นจริงที่เห็น
+            3. ส่งผลลัพธ์กลับมาในรูปแบบที่กำหนด: ส่วนของบทวิเคราะห์ ตามด้วยตัวคั่น "SCORE_JSON:" และปิดท้ายด้วย JSON object ของคะแนน
 
-            สำหรับแต่ละอวัยวะ ให้ท่านอธิบายลักษณะที่ปรากฏในภาพ และตีความหมายตามหลักโหงวเฮ้ง ทั้งในแง่ดีและแง่ที่ควรปรับปรุงหรือระวัง
-            จัดรูปแบบคำตอบให้เป็นระเบียบ อ่านง่าย โดยขึ้นหัวข้อสำหรับแต่ละอวัยวะให้ชัดเจน และใช้ภาษาไทยที่สุภาพและเข้าใจง่าย
+            **คลังความรู้โหงวเฮ้งฉบับสมบูรณ์:**
+            - **หลัก 3 วัง:** พิจารณาจากพื้นที่ใบหน้า วังไหนมีพื้นที่กว้างขวาง อิ่มเต็มที่สุด จะส่งผลต่อชีวิตช่วงนั้นมากที่สุด (วังฟ้า: วัยต้น, วังคน: วัยกลาง, วังดิน: วัยปลาย)
+            - **หลัก 10 อวัยวะ:**
+              1.  **หน้าผาก (วังฟ้า):** พิจารณาความกว้าง, สูง, ความอิ่มเต็มของเนื้อจากภาพ. กว้าง, สูง, อิ่ม = ดี, มีปัญญา. แคบ, ต่ำ, ยุบ, มีริ้วรอย = ข้อเสีย, ลำบาก, คิดมาก.
+              2.  **คิ้ว:** พิจารณารูปทรง, ความหนา, ความยาวเทียบกับหางตา. หนา, ยาว, เป็นระเบียบ = ดี. บาง, สั้น, ขาด, ชนกัน = ข้อเสีย, อารมณ์แปรปรวน, โดดเดี่ยว.
+              3.  **ตา:** พิจารณาขนาด, รูปทรง และ "แววตา". สดใส, มีพลัง = ดี. ตาเศร้า, ลอย, ขุ่นมัว, ตาขาวสามด้าน = ข้อเสีย, ชีวิตมีอุปสรรค, ไม่น่าไว้ใจ.
+              4.  **โหนกแก้ม:** พิจารณาความอวบอิ่มของเนื้อ และความสูงต่ำเมื่อเทียบกับจมูก. อิ่มเต็ม, รับกับจมูก = ดี, มีอำนาจ. ตอบ, แบน, สูงเกินไป = ข้อเสีย, ขาดคนหนุน, ใช้อำนาจผิดทาง.
+              5.  **จมูก (วังคน):** พิจารณาขนาด, ความตรงของสัน, และ "ความหนาของเนื้อ". ใหญ่, สันตรง, ปลายกลมมีเนื้อ = ดี, ร่ำรวย. เล็ก, แหลม, คด, เห็นรูจมูกชัด = ข้อเสีย, เก็บเงินไม่อยู่.
+              6.  **ร่องหยิ่งตง:** พิจารณาความลึกและความชัดเจน. ลึก, ยาว, ชัด = ดี. ตื้น, สั้น, มีเส้นตัด = ข้อเสีย, มีบุตรยาก, สุขภาพระบบสืบพันธุ์ไม่ดี.
+              7.  **เส้นฮวบเหล็ง:** พิจารณาความชัดเจนและความยาว. ชัดเจน, ยาว, ไม่เข้าปาก = ดี. สั้น, ขาด, เข้าปาก = ข้อเสีย, บั้นปลายลำบาก.
+              8.  **ปาก:** พิจารณาความหนาและมุมปาก. อวบอิ่ม, มุมปากยก = ดี. บาง, คว่ำ, ปิดไม่สนิท = ข้อเสีย, วาจาไม่ดี, เก็บความลับไม่อยู่.
+              9.  **คาง-กราม (วังดิน):** พิจารณารูปทรงและความอิ่มของเนื้อ. กว้าง, มีเนื้อ = ดี, บั้นปลายสบาย. แหลม, สั้น, หลุบ = ข้อเสีย, บั้นปลายโดดเดี่ยว.
+              10. **หู:** พิจารณาขนาด, ความหนา, และติ่งหู. ใหญ่, หนา, มีติ่งหู = ดี. เล็ก, บาง, ปลิ้น = ข้อเสีย, ดื้อรั้น, สุขภาพไม่ดี.
+
+            **วิธีสร้างคำทำนายและคะแนน:**
+            1.  เริ่มต้นด้วยประโยคว่า "นี่คือผลการวิเคราะห์ใบหน้าตามหลักโหงวเฮ้งอย่างตรงไปตรงมา"
+            2.  **ส่วนที่ 1: บทสรุปภาพรวม:** สรุปภาพรวมของใบหน้า, สัดส่วน 3 วัง, และธาตุของใบหน้า
+            3.  **ส่วนที่ 2: การวิเคราะห์อวัยวะ 10 ส่วน:** วิเคราะห์เจาะลึกอวัยวะแต่ละส่วน โดยระบุทั้ง "จุดแข็ง" และ "จุดอ่อน (ข้อเสีย)" อย่างชัดเจน
+            4.  **ส่วนที่ 3 (คำนวณภายใน):** ประเมินคะแนน 1-10 ใน 5 ด้าน (การงาน, การเงิน, ความรัก, บริวาร, สุขภาพ)
+            5.  **ส่วนที่ 4: ผลลัพธ์สุดท้าย:** สร้างผลลัพธ์โดยนำข้อ 1-3 มารวมกัน แล้วตามด้วยตัวคั่น "SCORE_JSON:" และ JSON object ของคะแนน เช่น SCORE_JSON:{"การงาน": 8, "การเงิน": 7, "ความรัก": 9, "บริวาร": 6, "สุขภาพ": 8}
             `;
-            const payload = {
-                contents: [{
-                    role: "user",
-                    parts: [{ text: prompt }, { inlineData: { mimeType: "image/jpeg", data: base64Image } }]
-                }],
-            };
-            const apiKey = "";
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: "image/jpeg", data: base64ImageData } }] }] };
+            const apiKey = "AIzaSyBKizDKjviQ3m-8waa4bxj-hbHn-BaMhss";
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!response.ok) {
+                const errorBody = await response.json();
+                console.error("API Error Body:", errorBody);
                 throw new Error(`API call failed with status: ${response.status}`);
             }
             const result = await response.json();
-            if (result.candidates && result.candidates.length > 0 &&
-                result.candidates[0].content && result.candidates[0].content.parts &&
-                result.candidates[0].content.parts.length > 0) {
+            if (result.candidates && result.candidates.length > 0) {
                 return result.candidates[0].content.parts[0].text;
             } else {
                 console.error("Unexpected API response structure:", result);
-                if (result.promptFeedback && result.promptFeedback.blockReason) {
-                     throw new Error(`การวิเคราะห์ถูกบล็อกเนื่องจาก: ${result.promptFeedback.blockReason}. อาจเป็นเพราะรูปภาพไม่เหมาะสม`);
-                }
                 throw new Error('ไม่ได้รับผลการวิเคราะห์จาก AI');
             }
         }
 
-        function displayResults(resultText) {
-            imagePreview.src = `data:image/jpeg;base64,${base64ImageData}`;
-            analysisText.textContent = resultText;
+        function displayResults(text, scores) {
+            analysisText.textContent = text;
+            drawRadarChart(scores);
             loadingSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
+        }
+
+        function drawRadarChart(scores) {
+            const ctx = scoreChartCanvas.getContext('2d');
+            if (scoreChartInstance) {
+                scoreChartInstance.destroy();
+            }
+            scoreChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: Object.keys(scores),
+                    datasets: [{
+                        label: 'คะแนนศักยภาพ',
+                        data: Object.values(scores),
+                        backgroundColor: 'rgba(185, 28, 28, 0.2)',
+                        borderColor: 'rgba(185, 28, 28, 1)',
+                        pointBackgroundColor: 'rgba(185, 28, 28, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(185, 28, 28, 1)'
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255, 255, 255, 0.2)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.2)' },
+                            pointLabels: { 
+                                color: '#fde047', // yellow-300
+                                font: {
+                                    size: 14,
+                                    family: "'Noto Sans Thai', sans-serif"
+                                }
+                            },
+                            ticks: {
+                                color: '#d1d5db', // gray-300
+                                backdropColor: 'rgba(0, 0, 0, 0.5)',
+                                stepSize: 2,
+                                font: { size: 10 }
+                            },
+                            min: 0,
+                            max: 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawDetectionsOnCanvas(detections, canvas) {
+            const img = uploadPreviewImage;
+            const displaySize = { width: img.width, height: img.height };
+            faceapi.matchDimensions(canvas, displaySize);
+
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            const context = canvas.getContext('2d');
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            faceapi.draw.drawFaceLandmarks(canvas, resizedDetections, { drawLines: true, color: 'rgba(255, 255, 255, 0.4)' });
+
+            const landmarks = resizedDetections[0].landmarks;
+            const jaw = landmarks.getJawOutline();
+            const nose = landmarks.getNose();
+            const leftEyebrow = landmarks.getLeftEyeBrow();
+            const rightEyebrow = landmarks.getRightEyeBrow();
+            
+            const topOfEyebrows = Math.min(...leftEyebrow.map(p => p.y), ...rightEyebrow.map(p => p.y));
+            const bottomOfNose = Math.max(...nose.map(p => p.y));
+            const middleSectionHeight = bottomOfNose - topOfEyebrows;
+            const wangFahLineY = topOfEyebrows - (middleSectionHeight * 0.75);
+
+            context.strokeStyle = '#B91C1C'; // A strong, dark red
+            context.lineWidth = 2;
+            context.shadowColor = 'black';
+            context.shadowBlur = 3;
+
+            const drawLineWithText = (y, text) => {
+                context.beginPath();
+                context.moveTo(jaw[0].x, y);
+                context.lineTo(jaw[16].x, y);
+                context.stroke();
+                context.font = '14px Noto Sans Thai';
+                context.fillStyle = '#F87171'; // Lighter red for text
+                context.textAlign = 'left';
+                context.fillText(text, jaw[0].x + 5, y - 5);
+            };
+
+            drawLineWithText(wangFahLineY, 'แนวอ้างอิงวังฟ้า');
+            drawLineWithText(topOfEyebrows, 'แนวอ้างอิงวังคน');
+            drawLineWithText(bottomOfNose, 'แนวอ้างอิงวังดิน');
+            
+            context.shadowBlur = 0;
         }
 
         // --- UI Helper Functions ---
@@ -263,7 +406,6 @@
             fileInfo.textContent = '';
             base64ImageData = null;
             deactivateAnalyzeButton();
-            // Hide preview
             uploadPreviewContainer.classList.add('hidden');
             uploadPreviewImage.src = '';
         }
@@ -273,8 +415,13 @@
             uploadSection.classList.remove('hidden');
             loadingSection.classList.add('hidden');
             resultSection.classList.add('hidden');
-            imagePreview.src = "";
+            const context = resultCanvas.getContext('2d');
+            context.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
             analysisText.textContent = "";
+            if (scoreChartInstance) {
+                scoreChartInstance.destroy();
+            }
+            loadingText.textContent = 'กำลังเตรียมโปรแกรม...';
         }
 
         function activateAnalyzeButton() {
